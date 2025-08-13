@@ -1,0 +1,131 @@
+.haiku-container {
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+.haiku-container.loading {
+  flex-direction: column;
+  color: #666;
+}
+
+.spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #4a5568;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.haiku-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  padding: 3rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  width: 100%;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.haiku-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+}
+
+.haiku-text {
+  font-family: 'Georgia', serif;
+  text-align: center;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+.haiku-line {
+  font-size: 1.4rem;
+  line-height: 1.8;
+  margin: 0.5rem 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 0.8s ease-in-out;
+}
+
+.haiku-line:nth-child(1) {
+  animation-delay: 0.2s;
+}
+
+.haiku-line:nth-child(2) {
+  animation-delay: 0.4s;
+  font-size: 1.5rem;
+}
+
+.haiku-line:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.image-description {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  text-align: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.description-label {
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+}
+
+.timestamp {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  text-align: center;
+  margin-top: 1rem;
+  position: relative;
+  z-index: 1;
+}

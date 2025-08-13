@@ -1,46 +1,125 @@
-# Getting Started with Create React App
+# SmolVLM WebGPU Haiku Generator
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React application that uses WebGPU to run AI models directly in your browser for real-time video analysis and haiku generation. The app captures video from your camera, analyzes the scene using computer vision models, and generates poetic haikus based on what it sees.
+
+## Features
+
+- 🎥 Real-time camera video capture
+- 🤖 AI-powered image analysis using MobileNetV4 running on WebGPU
+- ✍️ Automatic haiku generation using Qwen2.5 language model
+- ⏱️ Auto-refresh every 10 seconds
+- 🎯 Manual capture button for on-demand haiku creation
+- 📜 History list showing previous haikus (up to 10)
+- 🎨 Beautiful, responsive UI with gradient animations
+- 🚀 Runs entirely in the browser - no server required!
+
+## Requirements
+
+- **Browser**: Chrome 113+ (WebGPU support required)
+- **Platform**: Optimized for MacBook Pro M3, but works on any WebGPU-capable device
+- **Camera**: Device with camera access
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone [repository-url]
+cd smolvlm-haiku-app
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+npm start
+```
+
+4. Open Chrome and navigate to `http://localhost:3000`
+
+5. Allow camera permissions when prompted
+
+## How It Works
+
+1. **WebGPU Detection**: The app first checks if your browser supports WebGPU
+2. **Camera Access**: Requests permission to access your camera
+3. **Model Loading**: Downloads and initializes AI models (first load may take a few minutes)
+4. **Image Capture**: Captures frames from the video stream
+5. **Scene Analysis**: Uses MobileNetV4 to understand what's in the image
+6. **Haiku Generation**: Creates a poetic haiku based on the scene using Qwen2.5
+7. **Auto-Refresh**: Automatically generates new haikus every 10 seconds
+
+## Models Used
+
+- **Image Classification**: `onnx-community/mobilenetv4_conv_small.e2400_r224_in1k`
+- **Text Generation**: `onnx-community/Qwen2.5-0.5B-Instruct`
+
+Both models are optimized for WebGPU and run entirely in your browser using [Transformers.js](https://github.com/huggingface/transformers.js).
 
 ## Available Scripts
 
-In the project directory, you can run:
-
 ### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Runs the app in development mode. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
 ### `npm run build`
+Builds the app for production to the `build` folder.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### `npm test`
+Launches the test runner in interactive watch mode.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Project Structure
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+src/
+├── components/
+│   ├── HaikuDisplay.tsx      # Displays generated haikus
+│   ├── VideoCapture.tsx      # Camera video feed component
+├── hooks/
+│   ├── useWebGPU.ts          # WebGPU detection hook
+│   ├── useCamera.ts          # Camera access hook
+├── services/
+│   ├── simpleModelService.ts # AI model management
+├── App.tsx                   # Main application component
+└── App.css                   # Application styles
+```
 
-### `npm run eject`
+## Troubleshooting
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+### WebGPU Not Supported
+- Ensure you're using Chrome 113 or later
+- Check chrome://gpu to verify WebGPU is enabled
+- Try enabling the flag at chrome://flags/#enable-unsafe-webgpu
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Camera Not Working
+- Check browser permissions for camera access
+- Ensure no other application is using the camera
+- Try refreshing the page
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Models Not Loading
+- Check your internet connection (models are downloaded on first use)
+- Clear browser cache and try again
+- Check the browser console for specific error messages
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## Performance Notes
 
-## Learn More
+- First load will download models (~100-200MB), which are then cached
+- Subsequent loads will be much faster
+- WebGPU acceleration provides smooth, real-time performance
+- Optimized for Apple Silicon (M1/M2/M3) but works on other GPUs
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Privacy
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+All processing happens locally in your browser. No data is sent to any server. Your camera feed and generated content remain completely private.
+
+## License
+
+MIT
+
+## Acknowledgments
+
+- Built with [Transformers.js](https://github.com/huggingface/transformers.js)
+- Models from [Hugging Face](https://huggingface.co/)
+- WebGPU API by W3C
+- Created with Create React App
