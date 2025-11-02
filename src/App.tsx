@@ -104,12 +104,17 @@ function App() {
   const [shouldAutoCapture, setShouldAutoCapture] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [capturedImage, setCapturedImage] = useState<string>('');
+  const [languageModelReady, setLanguageModelReady] = useState(false);
+  const [modelWarning, setModelWarning] = useState<string | null>(null);
   const processingRef = useRef(false);
 
   // Initialize model
   useEffect(() => {
     const initModel = async () => {
       if (!webGPU.supported) return;
+
+      setModelWarning(null);
+      setLanguageModelReady(false);
 
       try {
         setModelProgress({
@@ -166,7 +171,23 @@ function App() {
             return prev;
           });
         });
+      } catch (error: any) {
+        console.error('Failed to initialize SmolVLM:', error);
+        setModelProgress({
+          stage: 'error',
+          phase: 'error',
+          message: 'Failed to load vision model',
+          fileName: undefined,
+          percent: null,
+          detail: error?.message ?? String(error),
+        });
+        setModelLoading(false);
+        return;
+      }
 
+      let qwenReady = false;
+
+      try {
         setModelProgress({
           stage: 'initializing',
           phase: 'language',
@@ -222,26 +243,24 @@ function App() {
           });
         });
 
-        setModelProgress({
-          stage: 'ready',
-          phase: 'finalizing',
-          message: 'Models ready',
-          fileName: undefined,
-          percent: 100,
-          detail: undefined,
-        });
-        setModelLoading(false);
+        qwenReady = true;
+        setLanguageModelReady(true);
       } catch (error: any) {
-        console.error('Failed to initialize required models:', error);
-        setModelProgress({
-          stage: 'error',
-          phase: 'error',
-          message: 'Failed to load AI models',
-          fileName: undefined,
-          percent: null,
-          detail: error?.message ?? String(error),
-        });
+        console.error('Failed to initialize Qwen haiku generator:', error);
+        setModelWarning('Haiku generator failed to load. Using fallback haikus from SmolVLM.');
       }
+
+      setModelProgress({
+        stage: 'ready',
+        phase: qwenReady ? 'finalizing' : 'vision',
+        message: qwenReady
+          ? 'Models ready'
+          : 'Vision model ready (haikus will use fallback)',
+        fileName: undefined,
+        percent: 100,
+        detail: qwenReady ? undefined : 'Haiku generator unavailable; fallback haikus will be used.',
+      });
+      setModelLoading(false);
     };
 
     if (!webGPU.checking && webGPU.supported) {
@@ -308,7 +327,7 @@ function App() {
 
         let finalHaiku = result.haiku;
 
-        if (qwenHaikuService.isInitialized()) {
+        if (languageModelReady && qwenHaikuService.isInitialized()) {
           try {
             finalHaiku = await qwenHaikuService.generateHaiku(result.description);
           } catch (haikuError: any) {
@@ -359,7 +378,7 @@ function App() {
         setProcessingHaiku(false);
       }
     }
-  }, [captureFrame, videoRef]);
+  }, [captureFrame, videoRef, languageModelReady]);
 
   // Auto-capture timer - starts AFTER haiku is displayed
   useEffect(() => {
@@ -504,6 +523,7 @@ function App() {
       </header>
 
       <main className="app-main">
+        {modelWarning && <div className="warning-banner">ℹ️ {modelWarning}</div>}
         {errorMessage && <div className="error-banner">⚠️ {errorMessage}</div>}
 
         {/* Debug: Captured Image Preview */}
