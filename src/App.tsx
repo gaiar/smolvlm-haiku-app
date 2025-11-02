@@ -6,6 +6,7 @@ import { HaikuDisplay } from './components/HaikuDisplay';
 import { VideoCapture } from './components/VideoCapture';
 import { HaikuHistory } from './components/HaikuHistory';
 import smolVLMService from './services/smolvlmService';
+import qwenHaikuService from './services/qwenHaikuService';
 
 const CAPTURE_INTERVAL = 10 * 1000; // 10 seconds in milliseconds
 const MAX_HAIKU_HISTORY = 10; // Keep last 10 haikus
@@ -19,6 +20,7 @@ interface HaikuEntry {
 
 interface ModelProgressState {
   stage: 'initializing' | 'downloading' | 'processing' | 'ready' | 'error';
+  phase: 'vision' | 'language' | 'finalizing' | 'error';
   message: string;
   fileName?: string;
   percent?: number | null;
@@ -87,6 +89,7 @@ function App() {
   const [modelLoading, setModelLoading] = useState(true);
   const [modelProgress, setModelProgress] = useState<ModelProgressState>({
     stage: 'initializing',
+    phase: 'vision',
     message: 'Preparing SmolVLM runtime',
     fileName: undefined,
     percent: null,
@@ -111,6 +114,7 @@ function App() {
       try {
         setModelProgress({
           stage: 'initializing',
+          phase: 'vision',
           message: 'Starting SmolVLM download',
           fileName: undefined,
           percent: null,
@@ -129,7 +133,8 @@ function App() {
             if (isComplete) {
               return {
                 stage: 'processing',
-                message: 'Finalizing model pipelines',
+                phase: 'vision',
+                message: 'Finalizing SmolVLM pipelines',
                 fileName,
                 percent: 100,
                 detail: undefined,
@@ -139,7 +144,8 @@ function App() {
             if (progressEvent?.status === 'progress' || typeof percent === 'number') {
               return {
                 stage: 'downloading',
-                message: 'Downloading model weights',
+                phase: 'vision',
+                message: 'Downloading SmolVLM weights',
                 fileName,
                 percent,
                 detail: undefined,
@@ -149,7 +155,63 @@ function App() {
             if (progressEvent?.file) {
               return {
                 stage: 'downloading',
-                message: 'Preparing model resources',
+                phase: 'vision',
+                message: 'Preparing SmolVLM resources',
+                fileName,
+                percent: percent ?? prev.percent ?? null,
+                detail: undefined,
+              };
+            }
+
+            return prev;
+          });
+        });
+
+        setModelProgress({
+          stage: 'initializing',
+          phase: 'language',
+          message: 'Starting Qwen haiku generator download',
+          fileName: undefined,
+          percent: null,
+          detail: undefined,
+        });
+
+        await qwenHaikuService.initialize((progressEvent) => {
+          setModelProgress((prev) => {
+            const percent = computeProgressPercent(progressEvent, prev.percent ?? null);
+            const fileName = extractFileName(progressEvent?.file) ?? prev.fileName;
+            const isComplete =
+              progressEvent?.status === 'done' ||
+              progressEvent?.status === 'complete' ||
+              percent === 100;
+
+            if (isComplete) {
+              return {
+                stage: 'processing',
+                phase: 'language',
+                message: 'Finalizing haiku generator',
+                fileName,
+                percent: 100,
+                detail: undefined,
+              };
+            }
+
+            if (progressEvent?.status === 'progress' || typeof percent === 'number') {
+              return {
+                stage: 'downloading',
+                phase: 'language',
+                message: 'Downloading haiku generator weights',
+                fileName,
+                percent,
+                detail: undefined,
+              };
+            }
+
+            if (progressEvent?.file) {
+              return {
+                stage: 'downloading',
+                phase: 'language',
+                message: 'Preparing haiku generator resources',
                 fileName,
                 percent: percent ?? prev.percent ?? null,
                 detail: undefined,
@@ -162,17 +224,19 @@ function App() {
 
         setModelProgress({
           stage: 'ready',
-          message: 'Model ready',
+          phase: 'finalizing',
+          message: 'Models ready',
           fileName: undefined,
           percent: 100,
           detail: undefined,
         });
         setModelLoading(false);
       } catch (error: any) {
-        console.error('Failed to initialize SmolVLM:', error);
+        console.error('Failed to initialize required models:', error);
         setModelProgress({
           stage: 'error',
-          message: 'Failed to load SmolVLM model',
+          phase: 'error',
+          message: 'Failed to load AI models',
           fileName: undefined,
           percent: null,
           detail: error?.message ?? String(error),
@@ -242,15 +306,30 @@ function App() {
           setErrorMessage('Using fallback - SmolVLM may not be working properly');
         }
 
+        let finalHaiku = result.haiku;
+
+        if (qwenHaikuService.isInitialized()) {
+          try {
+            finalHaiku = await qwenHaikuService.generateHaiku(result.description);
+          } catch (haikuError: any) {
+            console.error('Failed to generate haiku with Qwen:', haikuError);
+            setErrorMessage(
+              `Haiku generator fallback in use: ${haikuError?.message ?? 'unexpected error'}`
+            );
+          }
+        } else {
+          console.warn('Qwen haiku service not initialized; using SmolVLM fallback haiku.');
+        }
+
         setImageDescription(result.description);
         const timestamp = new Date();
 
-        setCurrentHaiku(result.haiku);
+        setCurrentHaiku(finalHaiku);
         setLastCaptureTime(timestamp);
 
         // Add to history
         const newEntry: HaikuEntry = {
-          haiku: result.haiku,
+          haiku: finalHaiku,
           description: result.description,
           timestamp,
           id: `haiku-${timestamp.getTime()}`,
@@ -366,6 +445,16 @@ function App() {
         ? Math.min(100, Math.max(0, modelProgress.percent))
         : null;
     const showProgressBar = modelProgress.stage !== 'error';
+    const phaseLabel =
+      modelProgress.phase === 'vision'
+        ? 'Vision model (SmolVLM-Instruct)'
+        : modelProgress.phase === 'language'
+        ? 'Haiku model (Qwen3-0.6B)'
+        : modelProgress.phase === 'finalizing'
+        ? 'Finalizing pipelines'
+        : modelProgress.phase === 'error'
+        ? 'Initialization error'
+        : '';
 
     return (
       <div className="app loading-screen">
@@ -375,9 +464,10 @@ function App() {
           aria-live="polite"
         >
           <div className="loading-spinner" aria-hidden="true" />
-          <h1>Loading SmolVLM Model...</h1>
+          <h1>Loading AI Models...</h1>
           <div className="loading-details">
             <span className="loading-stage">{modelProgress.message}</span>
+            {phaseLabel && <span className="loading-phase">{phaseLabel}</span>}
             {modelProgress.fileName && (
               <span className="loading-file" title={modelProgress.fileName}>
                 {modelProgress.fileName}

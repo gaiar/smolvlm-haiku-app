@@ -5,7 +5,7 @@ A React application that uses WebGPU to run AI models directly in your browser f
 ## Features
 
 - 🎥 Real-time camera video capture
-- 🤖 Vision-language perception powered by SmolVLM-Instruct on WebGPU
+- 🤖 Dual-model pipeline: SmolVLM-Instruct for scene understanding + Qwen3-0.6B for poetic output
 - ✍️ Automatic haiku creation sourced from the model's scene understanding
 - ⏱️ Auto-refresh every 10 seconds
 - 🎯 Manual capture button for on-demand haiku creation
@@ -48,14 +48,15 @@ npm start
 3. **Model Loading**: Downloads and initializes AI models (first load may take a few minutes)
 4. **Image Capture**: Captures frames from the video stream
 5. **Scene Analysis**: Runs the frame through SmolVLM for multimodal understanding
-6. **Haiku Generation**: Extracts the model's description and formats it into a haiku
+6. **Haiku Generation**: Sends the description to Qwen3-0.6B to compose a 5-7-5 haiku
 7. **Auto-Refresh**: Automatically generates new haikus every 10 seconds
 
 ## Models Used
 
-- **Vision-Language Model**: `HuggingFaceTB/SmolVLM-Instruct`
+- **Vision-Language Model**: `HuggingFaceTB/SmolVLM-Instruct` (description generation)
+- **Text Generation Model**: `onnx-community/Qwen3-0.6B-ONNX` (haiku synthesis)
 
-The model is loaded through [Transformers.js](https://github.com/huggingface/transformers.js) and runs fully in the browser with WebGPU acceleration.
+Both are loaded through [Transformers.js](https://github.com/huggingface/transformers.js) and run fully in the browser with WebGPU acceleration.
 
 ## Available Scripts
 
@@ -84,6 +85,7 @@ src/
 │   ├── useCamera.ts          # Camera access hook
 ├── services/
 │   ├── smolvlmService.ts     # SmolVLM loader and inference helpers
+│   ├── qwenHaikuService.ts   # Qwen3-based haiku generation pipeline
 │   ├── modelService.ts       # Florence/Qwen pipeline (experimental)
 │   └── simpleModelService.ts # Lightweight MobileNet + Qwen fallback
 ├── App.tsx                   # Main application component

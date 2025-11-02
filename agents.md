@@ -1,17 +1,17 @@
 # Project Overview
 - **Name:** SmolVLM WebGPU Haiku Generator
-- **Goal:** Capture live camera frames in the browser, run SmolVLM-Instruct locally via WebGPU, and turn the resulting scene understanding into haiku poetry.
-- **Key Flow:** WebGPU capability check → camera stream acquisition → SmolVLM model download/initialisation → continuous frame capture → description + haiku generation → history log and UI updates.
+- **Goal:** Capture live camera frames in the browser, describe each scene with SmolVLM-Instruct, and hand the description to Qwen3-0.6B to craft a 5-7-5 haiku — all locally via WebGPU.
+- **Key Flow:** WebGPU capability check → camera stream acquisition → SmolVLM download & inference → description transfer to Qwen → haiku rendering + history log updates.
 
 # Technology Stack
 - **Frontend:** React 19 + TypeScript (Create React App scaffold).
 - **Runtime Acceleration:** WebGPU (via `navigator.gpu`) for on-device inference.
-- **ML Inference:** `@huggingface/transformers` (Transformers.js) loading `HuggingFaceTB/SmolVLM-Instruct`.
-- **UI & Styling:** CSS modules within CRA; custom glassmorphism loading card; animated haiku presentation.
+- **ML Inference:** Transformers.js loading `HuggingFaceTB/SmolVLM-Instruct` (vision-language) and `onnx-community/Qwen3-0.6B-ONNX` (text generation).
+- **UI & Styling:** CSS within CRA, glassmorphism loading card, animated haiku display.
 - **Tooling:** ESLint, Prettier, Jest + Testing Library, npm scripts for build/test/lint.
-- **Support Services:** `smolvlmService` for model orchestration, optional Florence/Qwen fallback services kept for experiments.
+- **Support Services:** `smolvlmService` (scene understanding), `qwenHaikuService` (haiku generation), plus optional Florence/Qwen fallback pipelines kept for experiments.
 
 # Current Status
-- **Implemented:** Stable loader progress card, automated UI tests mocking SmolVLM and camera APIs, documented setup/runtime instructions, and progress log (`status.md`).
-- **Quality Checks:** `npm test -- --watchAll=false`, `npm run lint`, and `npm run build` complete (build issues a known upstream `import.meta` warning from Transformers.js).
-- **Outstanding:** Investigate/mitigate the import.meta warning when feasible; publish the repo to GitHub once credentials and network access are available.
+- **Implemented:** Two-model orchestration with shared progress UI, automated UI tests (SmolVLM/Qwen/camera mocks), and updated docs (`README.md`, `status.md`).
+- **Quality Checks:** `npm test -- --watchAll=false`, `npm run lint`, and `npm run build` all succeed (build continues to warn about upstream `import.meta` usage in Transformers.js).
+- **Outstanding:** Track the `import.meta` warning for future transformers.js updates; push the repo to GitHub once network access/credentials are available.

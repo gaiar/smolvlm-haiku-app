@@ -21,6 +21,20 @@ jest.mock('./services/smolvlmService', () => ({
   default: mockSmolVLMService,
 }));
 
+const mockQwenHaikuService = {
+  initialize: jest.fn().mockImplementation(async () => {
+    mockQwenHaikuService.isInitialized.mockReturnValue(true);
+  }),
+  isInitialized: jest.fn().mockReturnValue(false),
+  isLoading: jest.fn().mockReturnValue(false),
+  generateHaiku: jest.fn().mockResolvedValue('Mock Qwen line one\nMock line two\nMock line three'),
+};
+
+jest.mock('./services/qwenHaikuService', () => ({
+  __esModule: true,
+  default: mockQwenHaikuService,
+}));
+
 if (!global.navigator.mediaDevices) {
   Object.defineProperty(global.navigator, 'mediaDevices', {
     value: {
