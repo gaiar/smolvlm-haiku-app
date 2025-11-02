@@ -1,5 +1,7 @@
 import { AutoModelForVision2Seq, AutoProcessor, RawImage } from '@huggingface/transformers';
 
+export const SMOLVLM_FALLBACK_DESCRIPTION = 'A moment captured in stillness';
+
 class SmolVLMService {
   private model: any = null;
   private processor: any = null;
@@ -12,22 +14,17 @@ class SmolVLMService {
     this.loading = true;
 
     try {
-      // Use SmolVLM-Instruct for better capability
-      const modelId = 'HuggingFaceTB/SmolVLM-Instruct';
+      // Use SmolVLM-256M-Instruct (smaller, faster model)
+      const modelId = 'HuggingFaceTB/SmolVLM-256M-Instruct';
 
-      console.log('Loading SmolVLM processor...');
+      console.log('Loading SmolVLM 256M processor...');
       this.processor = await AutoProcessor.from_pretrained(modelId, {
         progress_callback: progressCallback,
       });
 
-      console.log('Loading SmolVLM model...');
+      console.log('Loading SmolVLM 256M model...');
       this.model = await AutoModelForVision2Seq.from_pretrained(modelId, {
-        dtype: {
-          embed_tokens: 'fp16',
-          vision_encoder: 'fp16',
-          encoder_model: 'q4',
-          decoder_model_merged: 'q4',
-        },
+        dtype: 'fp32',
         device: 'webgpu',
         progress_callback: progressCallback,
       });
@@ -42,9 +39,7 @@ class SmolVLMService {
     }
   }
 
-  async analyzeImageAndGenerateHaiku(
-    imageDataUrl: string
-  ): Promise<{ description: string; haiku: string }> {
+  async analyzeImage(imageDataUrl: string): Promise<{ description: string }> {
     if (!this.model || !this.processor) {
       throw new Error('SmolVLM not initialized');
     }
@@ -54,7 +49,7 @@ class SmolVLMService {
       console.log('Loading image for SmolVLM...');
       const image = await RawImage.fromURL(imageDataUrl);
 
-      // Create messages with proper format for SmolVLM (matching Python example)
+      // Create messages - keep it simple for SmolVLM-256M to provide rich, poetic descriptions
       const messages = [
         {
           role: 'user',
@@ -62,7 +57,7 @@ class SmolVLMService {
             { type: 'image' },
             {
               type: 'text',
-              text: 'Describe this image and then write a short haiku poem about it.',
+              text: 'Describe this scene in vivid, sensory detail. Focus on the main subject, their action or appearance, the setting, lighting, and atmosphere. Be observational and poetic.',
             },
           ],
         },
@@ -77,15 +72,15 @@ class SmolVLMService {
       const inputs = await this.processor(prompt, [image], { return_tensors: 'pt' });
 
       // Generate response with parameters similar to Python version
-      console.log('Generating response from SmolVLM...');
+      console.log('SmolVLM generate(): dispatching request');
       const outputs = await this.model.generate({
         ...inputs,
-        max_new_tokens: 100,
-        min_new_tokens: 10,
+        max_new_tokens: 200,  // Increased for structured 7-line output
+        min_new_tokens: 50,
         no_repeat_ngram_size: 2,
         do_sample: true,
-        temperature: 0.8,
-        top_p: 0.95,
+        temperature: 0.7,  // Slightly lower for more structured output
+        top_p: 0.9,
       });
 
       // Decode the response
@@ -109,93 +104,63 @@ class SmolVLMService {
         cleanResponse = cleanResponse.split('User:')[0].trim();
       }
 
-      console.log('Cleaned response:', cleanResponse);
+      console.log('SmolVLM cleaned response:', cleanResponse);
 
-      // Look for haiku pattern (3 lines) or create from description
-      const lines = cleanResponse.split('\n').filter((line: string) => line.trim().length > 0);
+      const description = this.extractDescription(cleanResponse);
 
-      let description = '';
-      let haiku = '';
-
-      // Check if response contains both description and haiku
-      const haikuKeywords = ['haiku', 'poem', 'verse'];
-      const hasHaikuKeyword = haikuKeywords.some((keyword) =>
-        cleanResponse.toLowerCase().includes(keyword)
-      );
-
-      if (hasHaikuKeyword) {
-        // Try to split description and haiku
-        const parts = cleanResponse.split(/haiku:?|poem:?|verse:?/i);
-        if (parts.length > 1) {
-          description = parts[0].trim();
-          haiku = parts[1].trim().split('\n').slice(0, 3).join('\n');
-        } else {
-          // Use last 3 lines as haiku, rest as description
-          if (lines.length > 3) {
-            description = lines.slice(0, -3).join(' ');
-            haiku = lines.slice(-3).join('\n');
-          } else {
-            haiku = lines.join('\n');
-            description = 'A moment captured in time';
-          }
-        }
-      } else if (lines.length === 3) {
-        // If exactly 3 lines, assume it's a haiku
-        haiku = lines.join('\n');
-        description = 'A poetic moment';
-      } else {
-        // Use response as description and generate haiku
-        description = cleanResponse.substring(0, 200);
-        haiku = this.createHaikuFromDescription(description);
+      if (description) {
+        console.info('SmolVLM parsed description:', description);
+        return { description };
       }
 
-      return { description, haiku };
+      console.warn('SmolVLM description parsing failed; using fallback description.');
+      return { description: this.createFallbackDescription() };
     } catch (error) {
       console.error('SmolVLM analysis failed:', error);
+      console.warn('SmolVLM falling back to default description due to error.');
 
       // Fallback response
       return {
-        description: 'A moment captured through the lens',
-        haiku: this.createFallbackHaiku(),
+        description: this.createFallbackDescription(),
       };
     }
   }
 
-  private createHaikuFromDescription(description: string): string {
-    // Extract key words from description
-    const words = description.toLowerCase().split(/\s+/);
+  private extractDescription(text: string): string | null {
+    // Extract natural description from SmolVLM output
+    const lines = text
+      .split(/\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 10); // Skip very short lines
 
-    // Look for key elements in the description
-    const hasMan = words.includes('man') || words.includes('person');
-    const hasWall = words.includes('wall') || words.includes('background');
-
-    // Generate contextual haiku based on description
-    if (hasMan && hasWall) {
-      return 'Man sits quietly\nBehind walls, life continues\nMoment captured here';
-    } else if (hasMan) {
-      return 'Person in the frame\nStillness speaks without words\nTime pauses to watch';
-    } else if (description.includes('green')) {
-      return 'Green spaces unfold\nNature meets technology\nBalance in pixels';
-    } else if (description.includes('focus')) {
-      return 'Focused attention\nIn this digital moment\nPresence captured now';
+    if (lines.length > 0) {
+      // Take all meaningful lines for rich context
+      const candidate = lines.join(' ');
+      return this.sanitizeDescription(candidate);
     }
 
-    // Default to time-based haiku
-    return this.createFallbackHaiku();
+    return null;
   }
 
-  private createFallbackHaiku(): string {
-    const hour = new Date().getHours();
-
-    if (hour < 6 || hour > 20) {
-      return "Night's quiet moment\nCamera captures stillness\nPeace in pixels found";
-    } else if (hour < 12) {
-      return 'Morning light appears\nThrough the lens, life awakening\nNew day beginning';
-    } else if (hour < 17) {
-      return 'Afternoon unfolds\nMoments frozen in the frame\nTime stands still for us';
-    } else {
-      return "Evening shadows fall\nCapturing the day's last light\nMemories preserved";
+  private sanitizeDescription(rawDescription: string): string | null {
+    const normalized = rawDescription.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return null;
     }
+
+    const lower = normalized.toLowerCase();
+    const disallowed = ['bitch', 'fuck', 'shit', 'damn', 'bastard'];
+    if (disallowed.some((word) => lower.includes(word))) {
+      console.warn('SmolVLM description contained disallowed language and was discarded.');
+      return null;
+    }
+
+    // No limitations - pass the full description to Qwen for richer haiku context
+    return normalized;
+  }
+
+  private createFallbackDescription(): string {
+    return SMOLVLM_FALLBACK_DESCRIPTION;
   }
 
   isInitialized(): boolean {
