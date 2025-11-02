@@ -5,6 +5,7 @@
 - Added UI coverage for WebGPU gating and main interface states.
 - Smoothed the first-load experience with a consistent SmolVLM progress card.
 - Chained SmolVLM scene descriptions into Qwen haiku generation.
+- Added graceful fallback when the Qwen haiku generator cannot load.
 - Brought documentation in line with the dual-model implementation.
 
 ## Progress
@@ -12,6 +13,7 @@
 - Replaced placeholder CRA test with focused UI assertions.
 - Introduced a steady progress display during SmolVLM initialization (spinner, progress bar, ellipsized filename).
 - Added `qwenHaikuService` and orchestrated dual-model inference within `App.tsx`.
+- Hardened initialization flow so vision-only mode continues when Qwen fails, surfacing a user-facing warning.
 - Documented the SmolVLM + Qwen workflow, scripts, and service structure in `README.md`.
 
 ## Decisions

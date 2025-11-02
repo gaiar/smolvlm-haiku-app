@@ -13,5 +13,6 @@
 
 # Current Status
 - **Implemented:** Two-model orchestration with shared progress UI, automated UI tests (SmolVLM/Qwen/camera mocks), and updated docs (`README.md`, `status.md`).
+- **Resilience:** Falls back to SmolVLM-authored haikus whenever Qwen fails to load, while surfacing a warning banner.
 - **Quality Checks:** `npm test -- --watchAll=false`, `npm run lint`, and `npm run build` all succeed (build continues to warn about upstream `import.meta` usage in Transformers.js).
 - **Outstanding:** Track the `import.meta` warning for future transformers.js updates; push the repo to GitHub once network access/credentials are available.

@@ -58,6 +58,8 @@ npm start
 
 Both are loaded through [Transformers.js](https://github.com/huggingface/transformers.js) and run fully in the browser with WebGPU acceleration.
 
+> If the Qwen model cannot be loaded (e.g., resource constraints), the app automatically falls back to SmolVLM's built-in haiku heuristics so the experience continues uninterrupted.
+
 ## Available Scripts
 
 ### `npm start`
