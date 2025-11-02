@@ -5,11 +5,12 @@ import { useCamera } from './hooks/useCamera';
 import { HaikuDisplay } from './components/HaikuDisplay';
 import { VideoCapture } from './components/VideoCapture';
 import { HaikuHistory } from './components/HaikuHistory';
-import smolVLMService from './services/smolvlmService';
+import smolVLMService, { SMOLVLM_FALLBACK_DESCRIPTION } from './services/smolvlmService';
 import qwenHaikuService from './services/qwenHaikuService';
 
 const CAPTURE_INTERVAL = 10 * 1000; // 10 seconds in milliseconds
 const MAX_HAIKU_HISTORY = 10; // Keep last 10 haikus
+const FALLBACK_HAIKU = 'Silent pixels wait\nCooling fans hum quietly\nHaikus bloom again';
 
 interface HaikuEntry {
   haiku: string;
@@ -250,12 +251,12 @@ function App() {
         setModelWarning('Haiku generator failed to load. Using fallback haikus from SmolVLM.');
       }
 
+      // Note: TTS uses Web Speech API (instant, no loading required)
+
       setModelProgress({
         stage: 'ready',
-        phase: qwenReady ? 'finalizing' : 'vision',
-        message: qwenReady
-          ? 'Models ready'
-          : 'Vision model ready (haikus will use fallback)',
+        phase: 'finalizing',
+        message: qwenReady ? 'All models ready' : 'Vision model ready (haikus will use fallback)',
         fileName: undefined,
         percent: 100,
         detail: qwenReady ? undefined : 'Haiku generator unavailable; fallback haikus will be used.',
@@ -317,39 +318,48 @@ function App() {
         console.log('Data URL length:', data.length);
         console.log('Data URL prefix:', data.substring(0, 50));
 
-        // Analyze the image
-        const result = await smolVLMService.analyzeImageAndGenerateHaiku(data);
-        console.log('SmolVLM result:', result);
+        // Analyze the image with SmolVLM
+        console.log('📸 Starting SmolVLM analysis...');
+        const { description } = await smolVLMService.analyzeImage(data);
+        console.log('✅ SmolVLM description:', description);
 
-        if (result.description === 'A moment captured through the lens') {
-          setErrorMessage('Using fallback - SmolVLM may not be working properly');
+        if (description === SMOLVLM_FALLBACK_DESCRIPTION) {
+          setErrorMessage('Using fallback description - SmolVLM may not be working properly');
         }
 
-        let finalHaiku = result.haiku;
+        let finalHaiku = FALLBACK_HAIKU;
+        let haikuSource: 'qwen' | 'fallback' = 'fallback';
 
+        console.log('🎋 Qwen status - Ready:', languageModelReady, 'Initialized:', qwenHaikuService.isInitialized());
+        
         if (languageModelReady && qwenHaikuService.isInitialized()) {
           try {
-            finalHaiku = await qwenHaikuService.generateHaiku(result.description);
+            console.log('📝 Requesting haiku from Qwen...');
+            finalHaiku = await qwenHaikuService.generateHaiku(description);
+            haikuSource = finalHaiku === FALLBACK_HAIKU ? 'fallback' : 'qwen';
+            console.log('✅ Haiku generated via:', haikuSource);
           } catch (haikuError: any) {
-            console.error('Failed to generate haiku with Qwen:', haikuError);
+            console.error('❌ Failed to generate haiku with Qwen:', haikuError);
             setErrorMessage(
               `Haiku generator fallback in use: ${haikuError?.message ?? 'unexpected error'}`
             );
           }
         } else {
-          console.warn('Qwen haiku service not initialized; using SmolVLM fallback haiku.');
+          console.warn('⚠️ Qwen haiku service not initialized; using fallback haiku.');
+          setErrorMessage('Haiku generator not ready; using fallback haiku.');
         }
 
-        setImageDescription(result.description);
+        setImageDescription(description);
         const timestamp = new Date();
 
         setCurrentHaiku(finalHaiku);
+        console.info(`Haiku update (${haikuSource}):`, finalHaiku.split('\n'));
         setLastCaptureTime(timestamp);
 
         // Add to history
         const newEntry: HaikuEntry = {
           haiku: finalHaiku,
-          description: result.description,
+          description,
           timestamp,
           id: `haiku-${timestamp.getTime()}`,
         };
@@ -367,9 +377,8 @@ function App() {
         console.error(errorMsg);
         setErrorMessage(errorMsg);
 
-        const fallbackHaiku =
-          'Silent pixels wait\nWebGPU dreams unfulfilled\nRefresh brings new hope';
-        setCurrentHaiku(fallbackHaiku);
+        setCurrentHaiku(FALLBACK_HAIKU);
+        console.info('Haiku update (error fallback):', FALLBACK_HAIKU.split('\n'));
         // Even on error, restart the timer
         setShouldAutoCapture(true);
         setTimeUntilNext(CAPTURE_INTERVAL / 1000);
@@ -585,8 +594,8 @@ function App() {
       </main>
 
       <footer className="app-footer">
-        <p>Powered by SmolVLM-500M running on WebGPU</p>
-        <p className="tech-info">Compact vision-language model • Auto-captures every 10 seconds</p>
+        <p>Powered by SmolVLM-256M + Qwen3-0.6B on WebGPU</p>
+        <p className="tech-info">Vision-to-poetry pipeline with read-aloud • Auto-captures every 10 seconds</p>
       </footer>
     </div>
   );
