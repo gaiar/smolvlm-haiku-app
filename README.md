@@ -5,8 +5,8 @@ A React application that uses WebGPU to run AI models directly in your browser f
 ## Features
 
 - 🎥 Real-time camera video capture
-- 🤖 AI-powered image analysis using MobileNetV4 running on WebGPU
-- ✍️ Automatic haiku generation using Qwen2.5 language model
+- 🤖 Vision-language perception powered by SmolVLM-Instruct on WebGPU
+- ✍️ Automatic haiku creation sourced from the model's scene understanding
 - ⏱️ Auto-refresh every 10 seconds
 - 🎯 Manual capture button for on-demand haiku creation
 - 📜 History list showing previous haikus (up to 10)
@@ -47,16 +47,15 @@ npm start
 2. **Camera Access**: Requests permission to access your camera
 3. **Model Loading**: Downloads and initializes AI models (first load may take a few minutes)
 4. **Image Capture**: Captures frames from the video stream
-5. **Scene Analysis**: Uses MobileNetV4 to understand what's in the image
-6. **Haiku Generation**: Creates a poetic haiku based on the scene using Qwen2.5
+5. **Scene Analysis**: Runs the frame through SmolVLM for multimodal understanding
+6. **Haiku Generation**: Extracts the model's description and formats it into a haiku
 7. **Auto-Refresh**: Automatically generates new haikus every 10 seconds
 
 ## Models Used
 
-- **Image Classification**: `onnx-community/mobilenetv4_conv_small.e2400_r224_in1k`
-- **Text Generation**: `onnx-community/Qwen2.5-0.5B-Instruct`
+- **Vision-Language Model**: `HuggingFaceTB/SmolVLM-Instruct`
 
-Both models are optimized for WebGPU and run entirely in your browser using [Transformers.js](https://github.com/huggingface/transformers.js).
+The model is loaded through [Transformers.js](https://github.com/huggingface/transformers.js) and runs fully in the browser with WebGPU acceleration.
 
 ## Available Scripts
 
@@ -67,7 +66,11 @@ Runs the app in development mode. Open [http://localhost:3000](http://localhost:
 Builds the app for production to the `build` folder.
 
 ### `npm test`
-Launches the test runner in interactive watch mode.
+Launches the test runner in interactive watch mode. For a single run (useful in CI) execute:
+
+```bash
+npm test -- --watchAll=false
+```
 
 ## Project Structure
 
@@ -80,7 +83,9 @@ src/
 │   ├── useWebGPU.ts          # WebGPU detection hook
 │   ├── useCamera.ts          # Camera access hook
 ├── services/
-│   ├── simpleModelService.ts # AI model management
+│   ├── smolvlmService.ts     # SmolVLM loader and inference helpers
+│   ├── modelService.ts       # Florence/Qwen pipeline (experimental)
+│   └── simpleModelService.ts # Lightweight MobileNet + Qwen fallback
 ├── App.tsx                   # Main application component
 └── App.css                   # Application styles
 ```
