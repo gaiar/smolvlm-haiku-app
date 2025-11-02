@@ -4,6 +4,7 @@ import App from './App';
 import { useWebGPU } from './hooks/useWebGPU';
 import { useCamera } from './hooks/useCamera';
 import smolVLMService from './services/smolvlmService';
+import qwenHaikuService from './services/qwenHaikuService';
 
 jest.mock('./hooks/useWebGPU', () => ({
   useWebGPU: jest.fn(),
@@ -16,11 +17,13 @@ jest.mock('./hooks/useCamera', () => ({
 const mockUseWebGPU = useWebGPU as jest.MockedFunction<typeof useWebGPU>;
 const mockUseCamera = useCamera as jest.MockedFunction<typeof useCamera>;
 const mockSmolVLMService = smolVLMService as jest.Mocked<typeof smolVLMService>;
+const mockQwenHaikuService = qwenHaikuService as jest.Mocked<typeof qwenHaikuService>;
 
 describe('App', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSmolVLMService.isInitialized.mockReturnValue(false);
+    mockQwenHaikuService.isInitialized.mockReturnValue(true);
   });
 
   test('renders WebGPU unsupported screen when API is unavailable', async () => {
