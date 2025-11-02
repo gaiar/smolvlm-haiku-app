@@ -3,11 +3,13 @@
 ## Summary
 - Stabilized automated testing by mocking the SmolVLM service and browser media APIs.
 - Added UI coverage for WebGPU gating and main interface states.
+- Smoothed the first-load experience with a consistent SmolVLM progress card.
 - Brought documentation in line with the SmolVLM-based implementation.
 
 ## Progress
 - Created Jest singleton mock for `smolvlmService` and camera APIs to unblock tests.
 - Replaced placeholder CRA test with focused UI assertions.
+- Introduced a steady progress display during SmolVLM initialization (spinner, progress bar, ellipsized filename).
 - Documented SmolVLM workflow, scripts, and service structure in `README.md`.
 
 ## Decisions

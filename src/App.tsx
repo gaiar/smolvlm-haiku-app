@@ -17,6 +17,48 @@ interface HaikuEntry {
   id: string;
 }
 
+interface ModelProgressState {
+  stage: 'initializing' | 'downloading' | 'processing' | 'ready' | 'error';
+  message: string;
+  fileName?: string;
+  percent?: number | null;
+  detail?: string;
+}
+
+const extractFileName = (rawPath?: string): string | undefined => {
+  if (!rawPath) {
+    return undefined;
+  }
+
+  const cleanedPath = rawPath.replace(/\?.*$/, '');
+  const segments = cleanedPath.split('/');
+  const fileName = segments.pop() || cleanedPath;
+  return fileName;
+};
+
+const computeProgressPercent = (event: any, fallback?: number | null): number | null => {
+  if (!event) {
+    return fallback ?? null;
+  }
+
+  if (typeof event.progress === 'number') {
+    return Math.round(event.progress * 100);
+  }
+
+  if (typeof event.percentage === 'number') {
+    return Math.round(event.percentage);
+  }
+
+  const loaded = event.loaded ?? event.loadedBytes;
+  const total = event.total ?? event.totalBytes;
+
+  if (typeof loaded === 'number' && typeof total === 'number' && total > 0) {
+    return Math.round((loaded / total) * 100);
+  }
+
+  return fallback ?? null;
+};
+
 function App() {
   const webGPU = useWebGPU();
   const { videoRef, status: cameraStatus, captureFrame } = useCamera();
@@ -43,7 +85,13 @@ function App() {
   }, []);
 
   const [modelLoading, setModelLoading] = useState(true);
-  const [modelProgress, setModelProgress] = useState<string>('');
+  const [modelProgress, setModelProgress] = useState<ModelProgressState>({
+    stage: 'initializing',
+    message: 'Preparing SmolVLM runtime',
+    fileName: undefined,
+    percent: null,
+    detail: undefined,
+  });
   const [currentHaiku, setCurrentHaiku] = useState<string>('');
   const [imageDescription, setImageDescription] = useState<string>('');
   const [lastCaptureTime, setLastCaptureTime] = useState<Date>(new Date());
@@ -61,19 +109,74 @@ function App() {
       if (!webGPU.supported) return;
 
       try {
-        await smolVLMService.initialize((progress) => {
-          if (progress?.status === 'progress') {
-            const percent = Math.round((progress.loaded / progress.total) * 100);
-            setModelProgress(`Loading ${progress.file}: ${percent}%`);
-          } else if (progress?.file) {
-            setModelProgress(`Loading ${progress.file}...`);
-          }
+        setModelProgress({
+          stage: 'initializing',
+          message: 'Starting SmolVLM download',
+          fileName: undefined,
+          percent: null,
+          detail: undefined,
+        });
+
+        await smolVLMService.initialize((progressEvent) => {
+          setModelProgress((prev) => {
+            const percent = computeProgressPercent(progressEvent, prev.percent ?? null);
+            const fileName = extractFileName(progressEvent?.file) ?? prev.fileName;
+            const isComplete =
+              progressEvent?.status === 'done' ||
+              progressEvent?.status === 'complete' ||
+              percent === 100;
+
+            if (isComplete) {
+              return {
+                stage: 'processing',
+                message: 'Finalizing model pipelines',
+                fileName,
+                percent: 100,
+                detail: undefined,
+              };
+            }
+
+            if (progressEvent?.status === 'progress' || typeof percent === 'number') {
+              return {
+                stage: 'downloading',
+                message: 'Downloading model weights',
+                fileName,
+                percent,
+                detail: undefined,
+              };
+            }
+
+            if (progressEvent?.file) {
+              return {
+                stage: 'downloading',
+                message: 'Preparing model resources',
+                fileName,
+                percent: percent ?? prev.percent ?? null,
+                detail: undefined,
+              };
+            }
+
+            return prev;
+          });
+        });
+
+        setModelProgress({
+          stage: 'ready',
+          message: 'Model ready',
+          fileName: undefined,
+          percent: 100,
+          detail: undefined,
         });
         setModelLoading(false);
-        setModelProgress('');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to initialize SmolVLM:', error);
-        setModelProgress('Failed to load SmolVLM model');
+        setModelProgress({
+          stage: 'error',
+          message: 'Failed to load SmolVLM model',
+          fileName: undefined,
+          percent: null,
+          detail: error?.message ?? String(error),
+        });
       }
     };
 
@@ -258,11 +361,47 @@ function App() {
   }
 
   if (modelLoading) {
+    const percentValue =
+      typeof modelProgress.percent === 'number'
+        ? Math.min(100, Math.max(0, modelProgress.percent))
+        : null;
+    const showProgressBar = modelProgress.stage !== 'error';
+
     return (
       <div className="app loading-screen">
-        <h1>Loading SmolVLM Model...</h1>
-        <p>{modelProgress}</p>
-        <p className="loading-note">This may take a few minutes on first load.</p>
+        <div
+          className={`loading-card${modelProgress.stage === 'error' ? ' loading-error' : ''}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="loading-spinner" aria-hidden="true" />
+          <h1>Loading SmolVLM Model...</h1>
+          <div className="loading-details">
+            <span className="loading-stage">{modelProgress.message}</span>
+            {modelProgress.fileName && (
+              <span className="loading-file" title={modelProgress.fileName}>
+                {modelProgress.fileName}
+              </span>
+            )}
+            {modelProgress.detail && (
+              <span className="loading-detail">{modelProgress.detail}</span>
+            )}
+            {showProgressBar && (
+              <div className="loading-progress-wrapper">
+                <div className="loading-progress-bar">
+                  <div
+                    className="loading-progress-fill"
+                    style={{ width: `${percentValue ?? 0}%` }}
+                  />
+                </div>
+                <span className="loading-percent">
+                  {percentValue !== null ? `${percentValue}%` : '…'}
+                </span>
+              </div>
+            )}
+          </div>
+          <p className="loading-note">This may take a few minutes on first load.</p>
+        </div>
       </div>
     );
   }
