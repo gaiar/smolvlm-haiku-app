@@ -1,0 +1,24 @@
+services:
+  smolvlm-haiku-app:
+    build:
+      context: .
+    container_name: smolvlm-haiku-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:3000:3000"
+    expose:
+      - "3000"
+    networks:
+      - public_web
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:3000 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  public_web:
+    external: true
+    name: public_web
